@@ -13,6 +13,8 @@ export default function ItemsPage() {
   }
 
   async function addItem() {
+    if (!name.trim()) return;
+
     await fetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,14 +32,12 @@ export default function ItemsPage() {
   return (
     <div style={{ padding: 20 }}>
       <h1>Items</h1>
-
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Enter item name"
       />
       <button onClick={addItem}>Add Item</button>
-
       <ul>
         {items.map((item: any) => (
           <li key={item.id}>{item.name}</li>
