@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+
+let items: { id: number; name: string }[] = [];
+let currentId = 1;
 
 export async function GET() {
-  const result = await query("SELECT id, name FROM items ORDER BY id");
-  return NextResponse.json(result.rows);
+  return NextResponse.json(items);
 }
 
-export async function POST(req: Request) {
-  const body = await req.json();
-  const name = body.name || "unnamed";
+export async function POST(request: Request) {
+  const body = await request.json();
+  console.log("Received POST:", body);
 
-  const result = await query(
-    "INSERT INTO items (name) VALUES ($1) RETURNING id, name",
-    [name]
-  );
+  const newItem = { id: currentId++, name: body.name };
+  items.push(newItem);
 
-  return NextResponse.json(result.rows[0], { status: 201 });
+  return NextResponse.json(newItem);
 }
