@@ -28,7 +28,7 @@ stages:
       inputs:
         versionSpec: '20.x'
 
-    # Install all deps (including dev) so TypeScript is available
+    # Install all deps (including dev) so TypeScript and Next CLI are available
     - script: |
         cd $(Build.SourcesDirectory)
         npm ci
@@ -51,11 +51,11 @@ stages:
           next.config.ts
         TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
 
-    # For deployment, install only production deps
+    # Keep full node_modules for deployment (no --omit=dev)
     - script: |
         cd $(Build.ArtifactStagingDirectory)/app
-        npm ci --omit=dev
-      displayName: "Install production deps for deployment"
+        npm ci
+      displayName: "Install all deps for deployment"
 
     - task: ArchiveFiles@2
       displayName: 'Archive app into zip'
@@ -96,3 +96,4 @@ stages:
                 -Name DATABASE_URL -Value "$(DATABASE_URL)"
               ConfigurationSettings: |
                 -WEBSITE_NODE_DEFAULT_VERSION 20
+
