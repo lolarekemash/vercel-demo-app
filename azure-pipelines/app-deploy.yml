@@ -3,11 +3,12 @@ trigger:
     include:
       - main
 
-pr: none   # don't trigger on PRs
+pr: none  # don't trigger on PRs
 
 variables:
   - group: app-secrets            # contains DATABASE_URL and ARM secrets
-    buildConfiguration: 'production'
+  - name: buildConfiguration
+    value: 'production'
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -21,7 +22,7 @@ stages:
     - task: NodeTool@0
       displayName: 'Install Node.js'
       inputs:
-        versionSpec: '20.x' 
+        versionSpec: '20.x'
 
     - script: npm ci
       displayName: 'Install dependencies'
@@ -31,13 +32,13 @@ stages:
 
     # Package full app for deployment
     - task: ArchiveFiles@2
+      displayName: 'Archive app into zip'
       inputs:
         rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
         includeRootFolder: false
         archiveType: 'zip'
         archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
         replaceExistingArchive: true
-      displayName: 'Archive app into zip'
 
     - publish: $(Build.ArtifactStagingDirectory)/app.zip
       artifact: drop
@@ -59,9 +60,9 @@ stages:
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Linux)'
             inputs:
-              azureSubscription: 'lola-service-connection'   # your service connection
+              azureSubscription: 'lola-service-connection'
               appType: 'webAppLinux'
-              appName: 'vercel-demo-app'                     # your App Service name
+              appName: 'vercel-demo-app'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               appSettings: |
                 -Name "DATABASE_URL" -Value "$(DATABASE_URL)"
