@@ -6,7 +6,7 @@ trigger:
 pr: none
 
 variables:
-  - group: app-secrets            # Contains DATABASE_URL and ARM secrets
+  - group: app-secrets
   - name: buildConfiguration
     value: 'production'
 
@@ -14,26 +14,30 @@ pool:
   vmImage: 'ubuntu-latest'
 
 stages:
+# =========================
+# BUILD STAGE
+# =========================
 - stage: Build
-  displayName: Build and Package Next.js App
+  displayName: Build Next.js App
   jobs:
   - job: Build
     steps:
+
     - task: NodeTool@0
       displayName: 'Install Node.js'
       inputs:
         versionSpec: '20.x'
 
-    - script: npm ci
-      displayName: 'Install dependencies'
+    - script: |
+        cd $(Build.SourcesDirectory)
+        npm ci --omit=dev
+      displayName: "Install production node_modules"
 
-    - script: npm run build
-      displayName: 'Build Next.js app'
+    - script: |
+        cd $(Build.SourcesDirectory)
+        npm run build
+      displayName: "Build Next.js app"
 
-    # Prepare runtime build output for deployment (SSR "standalone" build preferred)
-    - script: npm run build
-      displayName: 'Build Next.js app (standalone)'
-    
     - task: CopyFiles@2
       displayName: "Copy runtime files"
       inputs:
@@ -46,10 +50,10 @@ stages:
           next.config.js
         TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
 
-    # Install minimal production dependencies
-    - script: npm ci --omit=dev
-      displayName: "Install production node_modules"
-      workingDirectory: '$(Build.ArtifactStagingDirectory)/app'
+    - script: |
+        cd $(Build.ArtifactStagingDirectory)/app
+        npm ci --omit=dev
+      displayName: "Install production deps for deployment"
 
     - task: ArchiveFiles@2
       displayName: 'Archive app into zip'
@@ -63,6 +67,9 @@ stages:
     - publish: $(Build.ArtifactStagingDirectory)/app.zip
       artifact: drop
 
+# =========================
+# DEPLOY STAGE
+# =========================
 - stage: Deploy
   displayName: Deploy to Azure App Service
   dependsOn: Build
@@ -84,6 +91,6 @@ stages:
               appName: 'vercel-demo-app'
               package: '$(Pipeline.Workspace)/drop/app.zip'
               appSettings: |
-                -Name "DATABASE_URL" -Value "$(DATABASE_URL)"
+                -Name DATABASE_URL -Value "$(DATABASE_URL)"
               ConfigurationSettings: |
-                -WEBSITE_NODE_DEFAULT_VERSION 20.x
+                -WEBSITE_NODE_DEFAULT_VERSION 20
