@@ -1,13 +1,16 @@
 trigger:
   branches:
     include:
-      - infra/setup
+      - main
+  paths:
+    include:
+      - infra/*
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: TerraformSecrets    # ← from DevOps Library
+  - group: TerraformSecrets
 
 stages:
 - stage: Plan
@@ -16,16 +19,15 @@ stages:
   - job: PlanJob
     steps:
     - task: TerraformInstaller@1
-      displayName: Install Terraform
       inputs:
-        terraformVersion: '1.5.7'   # pin version for stability
+        terraformVersion: '1.5.7'
 
     - task: TerraformTaskV4@4
       displayName: Terraform Init
       inputs:
         provider: 'azurerm'
         command: 'init'
-        workingDirectory: 'terraform'
+        workingDirectory: 'infra'
         backendServiceArm: 'lola-service-connection'
         backendAzureRmResourceGroupName: 'terraform-state-rg'
         backendAzureRmStorageAccountName: 'lolacanadacentral12345'
@@ -37,7 +39,7 @@ stages:
       inputs:
         provider: 'azurerm'
         command: 'plan'
-        workingDirectory: 'terraform'
+        workingDirectory: 'infra'
         environmentServiceNameAzureRM: 'lola-service-connection'
 
 - stage: Apply
@@ -46,7 +48,7 @@ stages:
   condition: succeeded()
   jobs:
   - deployment: ApplyJob
-    environment: infra-prod   # ← approval gate here
+    environment: infra-prod
     strategy:
       runOnce:
         deploy:
@@ -56,6 +58,6 @@ stages:
             inputs:
               provider: 'azurerm'
               command: 'apply'
-              workingDirectory: 'terraform'
+              workingDirectory: 'infra'
               environmentServiceNameAzureRM: 'lola-service-connection'
               args: '-auto-approve'

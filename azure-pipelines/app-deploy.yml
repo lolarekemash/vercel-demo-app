@@ -3,10 +3,10 @@ trigger:
     include:
       - main
 
-pr: none
+pr: none   # don't trigger on PRs
 
 variables:
-  - group: app-secrets            # contains DATABASE_URL (secret)
+  - group: app-secrets            # contains DATABASE_URL and ARM secrets
   buildConfiguration: 'production'
 
 pool:
@@ -14,33 +14,30 @@ pool:
 
 stages:
 - stage: Build
-  displayName: Build and Publish
+  displayName: Build and Package Next.js App
   jobs:
   - job: Build
-    displayName: Build
     steps:
     - task: NodeTool@0
       inputs:
         versionSpec: '20.x'
-      displayName: 'Install Node 20'
+      displayName: 'Install Node.js 20'
 
-    - script: |
-        npm ci
+    - script: npm ci
       displayName: 'Install dependencies'
 
-    - script: |
-        npm run build
+    - script: npm run build
       displayName: 'Build Next.js app'
 
-    # package for deployment (zip)
+    # Package full app for deployment
     - task: ArchiveFiles@2
       inputs:
-        rootFolderOrFile: '.next'
+        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
         includeRootFolder: false
         archiveType: 'zip'
         archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
         replaceExistingArchive: true
-      displayName: 'Archive .next to zip'
+      displayName: 'Archive app into zip'
 
     - publish: $(Build.ArtifactStagingDirectory)/app.zip
       artifact: drop
@@ -50,8 +47,7 @@ stages:
   dependsOn: Build
   jobs:
   - deployment: DeployWeb
-    displayName: Deploy Web App
-    environment: 'production'   # optional - set approvals if you want
+    environment: 'production'   # optional: approvals can be added here
     strategy:
       runOnce:
         deploy:
@@ -59,27 +55,13 @@ stages:
           - download: current
             artifact: drop
 
-          # Deploy the zip from artifact to App Service (Linux)
+          # Deploy the zip to Azure App Service (Linux)
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App (Linux)'
             inputs:
-              azureSubscription: 'lola-service-connection'   # <-- use your service connection
+              azureSubscription: 'lola-service-connection'   # your service connection
               appType: 'webAppLinux'
-              appName: 'vercel-demo-app'                     # <-- replace with your App Service name
+              appName: 'vercel-demo-app'                     # your App Service name
               package: '$(Pipeline.Workspace)/drop/app.zip'
-
-          # Set the DATABASE_URL app setting securely using the DevOps secret
-          - task: AzureCLI@2
-            displayName: 'Set DATABASE_URL (from variable group) on App Service'
-            inputs:
-              azureSubscription: 'lola-service-connection'
-              scriptType: bash
-              scriptLocation: inlineScript
-              inlineScript: |
-                set -e
-                echo "Setting DATABASE_URL in App Service configuration (masked)."
-                az webapp config appsettings set \
-                  --resource-group "RESOURCE_GROUP" \
-                  --name "APP_NAME" \
-                  --settings "DATABASE_URL=$(DATABASE_URL)"
-                  
+              appSettings: |
+                -Name "DATABASE_URL" -Value "$(DATABASE_URL)"
