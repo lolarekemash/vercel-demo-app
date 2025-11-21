@@ -7,7 +7,7 @@ pr: none   # don't trigger on PRs
 
 variables:
   - group: app-secrets            # contains DATABASE_URL and ARM secrets
-  buildConfiguration: 'production'
+    buildConfiguration: 'production'
 
 pool:
   vmImage: 'ubuntu-latest'
