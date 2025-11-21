@@ -28,10 +28,11 @@ stages:
       inputs:
         versionSpec: '20.x'
 
+    # Install all deps (including dev) so TypeScript is available
     - script: |
         cd $(Build.SourcesDirectory)
-        npm ci --omit=dev
-      displayName: "Install production node_modules"
+        npm ci
+      displayName: "Install all node_modules for build"
 
     - script: |
         cd $(Build.SourcesDirectory)
@@ -47,9 +48,10 @@ stages:
           public/**
           package.json
           package-lock.json
-          next.config.js
+          next.config.ts
         TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
 
+    # For deployment, install only production deps
     - script: |
         cd $(Build.ArtifactStagingDirectory)/app
         npm ci --omit=dev

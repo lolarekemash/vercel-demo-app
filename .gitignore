@@ -40,7 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
+
 
 node_modules.tar.gz
 oryx-manifest.toml
