@@ -1,0 +1,61 @@
+trigger:
+  branches:
+    include:
+      - infra/setup
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: TerraformSecrets    # ← from DevOps Library
+
+stages:
+- stage: Plan
+  displayName: "Terraform Plan"
+  jobs:
+  - job: PlanJob
+    steps:
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: '1.5.7'   # pin version for stability
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: 'terraform'
+        backendServiceArm: 'lola-service-connection'
+        backendAzureRmResourceGroupName: 'terraform-state-rg'
+        backendAzureRmStorageAccountName: 'lolacanadacentral12345'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: 'vercel-to-azure.tfstate'
+
+    - task: TerraformTaskV4@4
+      displayName: Terraform Plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: 'terraform'
+        environmentServiceNameAzureRM: 'lola-service-connection'
+
+- stage: Apply
+  displayName: "Terraform Apply"
+  dependsOn: Plan
+  condition: succeeded()
+  jobs:
+  - deployment: ApplyJob
+    environment: infra-prod   # ← approval gate here
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: TerraformTaskV4@4
+            displayName: Terraform Apply
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: 'terraform'
+              environmentServiceNameAzureRM: 'lola-service-connection'
+              args: '-auto-approve'
