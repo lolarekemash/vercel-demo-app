@@ -1,19 +1,3 @@
-trigger:
-  branches:
-    include:
-      - main
-
-pr: none  # don't trigger on PRs
-
-variables:
-  - group: app-secrets            # contains DATABASE_URL and ARM secrets
-  - name: buildConfiguration
-    value: 'production'
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-stages:
 - stage: Build
   displayName: Build and Package Next.js App
   jobs:
@@ -30,11 +14,28 @@ stages:
     - script: npm run build
       displayName: 'Build Next.js app'
 
-    # Package full app for deployment
+    # Copy ONLY the runtime output
+    - task: CopyFiles@2
+      displayName: "Prepare build output"
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)'
+        Contents: |
+          .next/**
+          public/**
+          package.json
+          package-lock.json
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
+
+    # Optional: copy node_modules if using "next start" without Oryx
+    - script: npm ci --omit=dev
+      displayName: "Install production node_modules"
+      workingDirectory: '$(Build.ArtifactStagingDirectory)/app'
+
+    # Zip final runtime app
     - task: ArchiveFiles@2
       displayName: 'Archive app into zip'
       inputs:
-        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
         includeRootFolder: false
         archiveType: 'zip'
         archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
@@ -43,26 +44,4 @@ stages:
     - publish: $(Build.ArtifactStagingDirectory)/app.zip
       artifact: drop
 
-- stage: Deploy
-  displayName: Deploy to Azure App Service
-  dependsOn: Build
-  jobs:
-  - deployment: DeployWeb
-    environment: 'production'   # optional: approvals can be added here
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
 
-          # Deploy the zip to Azure App Service (Linux)
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure Web App (Linux)'
-            inputs:
-              azureSubscription: 'lola-service-connection'
-              appType: 'webAppLinux'
-              appName: 'vercel-demo-app'
-              package: '$(Pipeline.Workspace)/drop/app.zip'
-              appSettings: |
-                -Name "DATABASE_URL" -Value "$(DATABASE_URL)"
