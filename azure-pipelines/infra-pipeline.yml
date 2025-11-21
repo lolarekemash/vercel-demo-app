@@ -1,0 +1,50 @@
+ trigger:
+  branches:
+    include:
+      - infra/setup
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: TerraformSecrets    # ← from DevOps Library
+
+steps:
+  # Install Terraform
+  - task: TerraformInstaller@1
+    displayName: Install Terraform
+    inputs:
+      terraformVersion: 'latest'
+
+  # Terraform init
+  - task: TerraformTaskV4@4
+    displayName: Terraform Init
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: 'terraform'
+      backendServiceArm: 'lola-service-connection'
+      backendAzureRmResourceGroupName: 'terraform-state-rg'
+      backendAzureRmStorageAccountName: 'lolacanadacentral12345'
+      backendAzureRmContainerName: 'tfstate'
+      backendAzureRmKey: 'vercel-to-azure.tfstate'
+
+  # Terraform plan
+  - task: TerraformTaskV4@4
+    displayName: Terraform Plan
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: 'terraform'
+      environmentServiceNameAzureRM: 'AzureServiceConnection'
+
+  # Terraform apply (manual approval recommended)
+  - task: TerraformTaskV4@4
+    displayName: Terraform Apply
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: 'terraform'
+      environmentServiceNameAzureRM: 'AzureServiceConnection'
+      args: '-auto-approve'
+
