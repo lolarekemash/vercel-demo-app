@@ -6,7 +6,7 @@ trigger:
 pr: none
 
 variables:
-  - group: app-secrets
+  - group: app-secrets     # contains DATABASE_URL etc.
   - name: buildConfiguration
     value: 'production'
 
@@ -15,50 +15,64 @@ pool:
 
 stages:
 # =========================
-# BUILD STAGE
+# BUILD
 # =========================
 - stage: Build
-  displayName: Build Next.js App
+  displayName: Build Next.js Standalone
   jobs:
   - job: Build
+    displayName: Build job
     steps:
 
     - task: NodeTool@0
-      displayName: 'Install Node.js'
+      displayName: "Install Node.js"
       inputs:
-        versionSpec: '20.x'
+        versionSpec: "20.x"
 
-    # Install all deps (including dev) so TypeScript and Next CLI are available
     - script: |
         cd $(Build.SourcesDirectory)
         npm ci
-      displayName: "Install all node_modules for build"
+      displayName: "Install dependencies (including dev for build)"
 
     - script: |
         cd $(Build.SourcesDirectory)
         npm run build
-      displayName: "Build Next.js app"
+      displayName: "Run next build (produces .next/standalone)"
+
+    # Copy standalone runtime (server.js + required files)
+    - task: CopyFiles@2
+      displayName: "Copy standalone (server)"
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/.next/standalone'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
+
+    # Copy static and other files
+    - task: CopyFiles@2
+      displayName: "Copy static files"
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/.next/static'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/app/.next/static'
 
     - task: CopyFiles@2
-      displayName: "Copy runtime files"
+      displayName: "Copy public folder and package files"
       inputs:
         SourceFolder: '$(Build.SourcesDirectory)'
         Contents: |
-          .next/**
           public/**
           package.json
           package-lock.json
-          next.config.ts
         TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
 
-    # Keep full node_modules for deployment (no --omit=dev)
+    # Install only production deps inside the artifact
     - script: |
         cd $(Build.ArtifactStagingDirectory)/app
-        npm ci
-      displayName: "Install all deps for deployment"
+        npm ci --omit=dev
+      displayName: "Install production node_modules in artifact"
 
     - task: ArchiveFiles@2
-      displayName: 'Archive app into zip'
+      displayName: "Zip artifact"
       inputs:
         rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
         includeRootFolder: false
@@ -70,7 +84,7 @@ stages:
       artifact: drop
 
 # =========================
-# DEPLOY STAGE
+# DEPLOY
 # =========================
 - stage: Deploy
   displayName: Deploy to Azure App Service
@@ -86,14 +100,14 @@ stages:
             artifact: drop
 
           - task: AzureWebApp@1
-            displayName: 'Deploy to Azure Web App (Linux)'
+            displayName: "Deploy Next.js standalone to Azure"
             inputs:
               azureSubscription: 'lola-service-connection'
               appType: 'webAppLinux'
               appName: 'vercel-demo-app'
               package: '$(Pipeline.Workspace)/drop/app.zip'
+              startupCommand: 'node server.js'
               appSettings: |
                 -Name DATABASE_URL -Value "$(DATABASE_URL)"
-              ConfigurationSettings: |
-                -WEBSITE_NODE_DEFAULT_VERSION 20
-
+                -Name NODE_ENV -Value "production"
+                -Name WEBSITE_NODE_DEFAULT_VERSION -Value "20"
