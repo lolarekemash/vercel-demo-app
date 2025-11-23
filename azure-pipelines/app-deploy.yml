@@ -92,8 +92,9 @@ stages:
                   appName: "vercel-demo-app"
                   package: "$(Pipeline.Workspace)/drop/app.zip"
                   appSettings: |
-                    -Name NODE_ENV -Value production
-                    -Name DATABASE_URL -Value "$(DATABASE_URL)"
+                    -Name "NODE_ENV" -Value "production"
+                    -Name "DATABASE_URL" -Value "$(DATABASE_URL)"
                   ConfigurationSettings: |
-                    -WEBSITE_NODE_DEFAULT_VERSION 20
+                    -Name "WEBSITE_NODE_DEFAULT_VERSION" -Value "20"
+
 
