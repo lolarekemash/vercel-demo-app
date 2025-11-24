@@ -8,94 +8,36 @@ pool:
 
 variables:
   - group: app-secrets
-
-stages:
+ 
 # =========================
 # BUILD STAGE
 # =========================
-- stage: Build
-  jobs:
-    - job: Build
-      steps:
+stage: Build
+jobs:
+  - job: Build
+    steps:
+      # ... build steps ...
 
-      - task: NodeTool@0
-        displayName: "Install Node.js"
-        inputs:
-          versionSpec: "20.x"
-
-      - script: |
-          cd $(Build.SourcesDirectory)
-          npm ci
-        displayName: "Install all dependencies"
-
-      - script: |
-          cd $(Build.SourcesDirectory)
-          npm run build
-        displayName: "Build Next.js (standalone)"
-
-      - task: CopyFiles@2
-        displayName: "Copy build output"
-        inputs:
-          SourceFolder: '$(Build.SourcesDirectory)/.next/standalone'
-          Contents: '**/*'
-          TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
-
-      - task: CopyFiles@2
-        displayName: "Copy static files"
-        inputs:
-          SourceFolder: '$(Build.SourcesDirectory)/.next/static'
-          Contents: '**/*'
-          TargetFolder: '$(Build.ArtifactStagingDirectory)/app/.next/static'
-
-      - task: CopyFiles@2
-        inputs:
-          SourceFolder: '$(Build.SourcesDirectory)'
-          Contents: |
-            public/**
-            package.json
-            package-lock.json
-          TargetFolder: '$(Build.ArtifactStagingDirectory)/app'
-        displayName: "Copy public and package.json"
-
-      - task: ArchiveFiles@2
-        displayName: "Create deployment zip"
-        inputs:
-          rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
-          archiveType: zip
-          includeRootFolder: false
-          archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
-          replaceExistingArchive: true
-
-      - publish: $(Build.ArtifactStagingDirectory)/app.zip
-        artifact: drop
 
 # =========================
 # DEPLOY STAGE
 # =========================
-- stage: Deploy
-  dependsOn: Build
-  jobs:
-    - deployment: DeployWeb
-      environment: "production"
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - download: current
-                artifact: drop
+stage: Deploy
+dependsOn: Build
+jobs:
+  - deployment: DeployWeb
+    steps:
+      - download: current
+        artifact: drop
 
-              - task: AzureWebApp@1
-                displayName: "Deploy Next.js to Azure App Service"
-                inputs:
-                  azureSubscription: "lola-service-connection"
-                  appType: webAppLinux
-                  appName: "vercel-demo-app"
-                  package: "$(Pipeline.Workspace)/drop/app.zip"
-                  appSettings: |
-                    - Name NODE_ENV -Value production
-                    - Name DATABASE_URL -Value "$(DATABASE_URL)"
-                  ConfigurationSettings: |
-                    - WEBSITE_NODE_DEFAULT_VERSION=20
-
-
-
+      - task: AzureWebApp@1
+        inputs:
+          azureSubscription: "lola-service-connection"
+          appType: webAppLinux
+          appName: "vercel-demo-app"
+          package: "$(Pipeline.Workspace)/drop/app.zip"
+          appSettings: |
+            -Name NODE_ENV -Value "production"
+            -Name DATABASE_URL -Value "$(DATABASE_URL)"
+          ConfigurationSettings: |
+            -WEBSITE_NODE_DEFAULT_VERSION 20
