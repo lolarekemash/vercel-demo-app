@@ -19,8 +19,9 @@ resource "azurerm_app_service_plan" "asp" {
 }
 
 # App Insights
-resource "azurerm_application_insights" "ai" {
-  name                = "${var.app_name}-ai"
+
+resource "azurerm_application_insights" "appinsights" {
+  name                = "vercel-demo-app"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   application_type    = "web"
@@ -44,7 +45,7 @@ resource "azurerm_app_service" "app" {
 
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE" = "1"
-    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.ai.instrumentation_key
+    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.instrumentation_key
     # DATABASE_URL will be set later via Key Vault reference or via pipeline
   }
 }
