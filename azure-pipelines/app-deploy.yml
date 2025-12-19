@@ -34,7 +34,7 @@ jobs:
         inputs:
           azureSubscription: "lola-service-connection"
           appType: webAppLinux
-          appName: "vercel-demo-app"
+          appName: "vercel-demo-app-ai"
           package: "$(Pipeline.Workspace)/drop/app.zip"
           appSettings: |
             -Name NODE_ENV -Value "production"
